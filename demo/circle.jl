@@ -8,7 +8,8 @@ using SlicedDistributions
 d = 3
 b = 10000
 
-@time sn, lh = SlicedNormal(δ, d, b)
+Z = MonomialMapping(d)
+@time sn, lh = SlicedNormal(δ, Z, b)
 
 println("Likelihood: $lh")
 
