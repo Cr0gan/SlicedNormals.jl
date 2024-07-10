@@ -12,8 +12,10 @@ using Optim
 import Base: rand
 
 export SlicedNormal, SlicedExponential, rand, pdf
+export MonomialMapping
 
 abstract type SlicedDistribution end
+abstract type AbstractMapping end
 
 function Distributions.pdf(sn::SlicedDistribution, δ::AbstractMatrix)
     n, m = size(δ)
@@ -40,13 +42,7 @@ function rand(sd::SlicedDistribution, n::Integer)
     return samples
 end
 
-function Z(δ::AbstractVector, d::Integer)
-    x = @polyvar x[1:length(δ)]
-    z = mapreduce(p -> monomials(x..., p), vcat, 1:d)
-
-    return map(p -> p(δ), z)
-end
-
+include("mappings/monomial.jl")
 include("exponentials/poly.jl")
 include("normals/sum-of-squares.jl")
 
