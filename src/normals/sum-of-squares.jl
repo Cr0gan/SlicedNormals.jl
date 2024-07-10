@@ -1,5 +1,5 @@
 struct SlicedNormal <: SlicedDistribution
-    d::Integer
+    Z::AbstractMapping
     λ::AbstractVector
     μ::AbstractVector
     M::AbstractMatrix
@@ -7,7 +7,7 @@ struct SlicedNormal <: SlicedDistribution
     c::Float64
 end
 
-function SlicedNormal(δ::AbstractMatrix, d::Integer, b::Integer=10000)
+function SlicedNormal(δ::AbstractMatrix, Z::MonomialMapping, b::Integer=10000)
     lb = vec(minimum(δ; dims=1))
     ub = vec(maximum(δ; dims=1))
 
@@ -15,8 +15,9 @@ function SlicedNormal(δ::AbstractMatrix, d::Integer, b::Integer=10000)
 
     s = QuasiMonteCarlo.sample(b, lb, ub, HaltonSample())
 
-    zδ = mapreduce(r -> transpose(Z(r, 2d)), vcat, eachrow(δ))
-    zΔ = mapreduce(r -> transpose(Z(r, 2d)), vcat, eachcol(s))
+    Z.d = 2 * Z.d # go up to 2d (Z(r, 2d))
+    zδ = mapreduce(r -> transpose(Z(r)), vcat, eachrow(δ))
+    zΔ = mapreduce(r -> transpose(Z(r)), vcat, eachcol(s))
 
     μ, P = mean_and_covariance(zδ)
 
@@ -66,13 +67,14 @@ function SlicedNormal(δ::AbstractMatrix, d::Integer, b::Integer=10000)
 
     cΔ = prod(ub - lb) / b * sum(exp.(zsosΔ * result.minimizer / -2))
 
-    sn = SlicedNormal(d, result.minimizer, μ, M, Δ, cΔ)
+    sn = SlicedNormal(Z, result.minimizer, μ, M, Δ, cΔ)
     return sn, -result.minimum
 end
 
 function pdf(sn::SlicedNormal, δ::AbstractVector)
     if δ ∈ sn.Δ
-        z = Zsos(Z(δ, 2sn.d), sn)
+        # need 2d here as well (Z(δ, 2sn.d))
+        z = Zsos(sn.Z(δ), sn)
         return exp(-dot(z, sn.λ) / 2) / sn.c
     else
         return 0
