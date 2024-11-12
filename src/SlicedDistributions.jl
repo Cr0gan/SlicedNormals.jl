@@ -2,9 +2,8 @@ module SlicedDistributions
 
 using CovarianceEstimation
 using Distributions
-using DynamicPolynomials
-using IntervalArithmetic
 using LinearAlgebra
+using Monomials
 using TransitionalMCMC
 using QuasiMonteCarlo
 using Optim
@@ -12,10 +11,8 @@ using Optim
 import Base: rand
 
 export SlicedNormal, SlicedExponential, rand, pdf
-export MonomialMapping
 
 abstract type SlicedDistribution end
-abstract type AbstractMapping end
 
 function Distributions.pdf(sn::SlicedDistribution, δ::AbstractMatrix)
     n, m = size(δ)
@@ -29,9 +26,7 @@ function Distributions.pdf(sn::SlicedDistribution, δ::AbstractMatrix)
 end
 
 function rand(sd::SlicedDistribution, n::Integer)
-    lb, ub = getfield.(sd.Δ, :lo), getfield.(sd.Δ, :hi)
-
-    prior = Uniform.(lb, ub)
+    prior = Uniform.(sd.lb, sd.ub)
 
     logprior(x) = sum(logpdf.(prior, x))
     sampler(n) = mapreduce(u -> rand(u, n), hcat, prior)
@@ -42,7 +37,50 @@ function rand(sd::SlicedDistribution, n::Integer)
     return samples
 end
 
-include("mappings/monomial.jl")
+function get_likelihood(
+    zδ::Matrix{<:Real}, zΔ::Matrix{<:Real}, n::Integer, vol::Real, b::Integer
+)
+    f = λ -> n * log(vol / b * sum(exp.(zΔ * λ / -2))) + sum(zδ * λ) / 2
+    return f
+end
+
+function get_gradient(zδ::Matrix{<:Real}, zΔ::Matrix{<:Real}, n::Integer)
+    f =
+        (g, λ) -> begin
+            exp_Δ = exp.(zΔ * λ / -2)
+            sum_exp_Δ = sum(exp_Δ)
+            for i in eachindex(g)
+                g[i] = @views n * sum(exp_Δ .* -0.5zΔ[:, i]) / sum_exp_Δ + sum(zδ[:, i]) / 2
+            end
+            return nothing
+        end
+    return f
+end
+
+function get_hessian(zΔ::Matrix{<:Real}, n::Integer)
+    f =
+        (H, λ) -> begin
+            exp_Δ = exp.(zΔ * λ / -2)
+            sum_exp_Δ = sum(exp_Δ)
+            sum_exp_Δ² = sum_exp_Δ^2
+
+            for (i, Δ_i) in enumerate(eachcol(zΔ))
+                exp_Δ_i = exp_Δ .* -0.5Δ_i
+                sum_exp_Δ_i = sum(exp_Δ_i)
+
+                for (j, Δ_j) in enumerate(eachcol(zΔ))
+                    H[i, j] =
+                        n * (
+                            sum(exp_Δ_i .* -0.5Δ_j) * sum_exp_Δ -
+                            sum_exp_Δ_i * sum(exp_Δ .* -0.5Δ_j)
+                        ) / sum_exp_Δ²
+                end
+            end
+            return nothing
+        end
+    return f
+end
+
 include("exponentials/poly.jl")
 include("normals/sum-of-squares.jl")
 

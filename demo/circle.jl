@@ -1,10 +1,15 @@
 using DelimitedFiles
+using DelimitedFiles
 using Plots
+using SlicedDistributions
+
+δ = readdlm("demo/data/circle.csv", ',')
 using SlicedDistributions
 
 δ = readdlm("demo/data/circle.csv", ',')
 
 # Fit Sliced Normal Distribution
+d = 3
 d = 3
 b = 10000
 
@@ -26,4 +31,5 @@ display(p)
 xs = range(-4, 4; length=200)
 ys = range(-4, 4; length=200)
 
+contour!(xs, ys, (x, y) -> pdf(sn, [x, y]))
 contour!(xs, ys, (x, y) -> pdf(sn, [x, y]))
