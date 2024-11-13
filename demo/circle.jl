@@ -1,10 +1,7 @@
 using DelimitedFiles
-using DelimitedFiles
 using Plots
 using SlicedDistributions
 
-δ = readdlm("demo/data/circle.csv", ',')
-using SlicedDistributions
 
 δ = readdlm("demo/data/circle.csv", ',')
 
